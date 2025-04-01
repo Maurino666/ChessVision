@@ -2,6 +2,7 @@ import os
 import csv
 import torch
 from PIL import Image
+import torchvision.transforms.functional as F  # Assicurati di importare F.to_tensor
 
 class ChessboardCornersDataset(torch.utils.data.Dataset):
     def __init__(self, root, csv_file, transforms=None):
@@ -35,6 +36,9 @@ class ChessboardCornersDataset(torch.utils.data.Dataset):
         # Load the image in RGB mode
         img = Image.open(img_path).convert("RGB")
 
+        # Convert PIL Image to torch.Tensor [C, H, W]
+        img = F.to_tensor(img)
+
         # Extract corner coordinates from CSV
         xTL, yTL = float(data['xTL']), float(data['yTL'])
         xTR, yTR = float(data['xTR']), float(data['yTR'])
@@ -42,16 +46,12 @@ class ChessboardCornersDataset(torch.utils.data.Dataset):
         xBR, yBR = float(data['xBR']), float(data['yBR'])
 
         # Create the keypoints array
-        # We have just 1 instance (the chessboard) with 4 keypoints (corners).
-        # The last value in each keypoint can be visibility (0, 1, 2).
-        # We'll set them to 2 (fully visible).
         keypoints = [[
             [xTL, yTL, 2],
             [xTR, yTR, 2],
             [xBL, yBL, 2],
             [xBR, yBR, 2]
         ]]
-
         keypoints = torch.as_tensor(keypoints, dtype=torch.float32)
 
         # Compute a bounding box that encloses the four corners
@@ -64,14 +64,11 @@ class ChessboardCornersDataset(torch.utils.data.Dataset):
         labels = torch.tensor([1], dtype=torch.int64)  # single class (e.g. "chessboard")
 
         # Create the target dictionary
-        # keypoints -> shape (N, K, 2) if you strip out the last dimension (visibility)
-        # keypoints_visible -> shape (N, K)
-        # where N = number of instances (1 here), K = number of keypoints (4 corners)
         target = {
             'boxes': boxes,
             'labels': labels,
-            'keypoints': keypoints[:, :, :2],        # (1,4,2)
-            'keypoints_visible': keypoints[:, :, 2], # (1,4)
+            'keypoints': keypoints[:, :, :2],        # shape (1,4,2)
+            'keypoints_visible': keypoints[:, :, 2],   # shape (1,4)
         }
 
         # Apply transformations if provided
