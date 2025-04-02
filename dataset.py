@@ -9,7 +9,7 @@ class ChessboardCornersDataset(torch.utils.data.Dataset):
         """
         root: path to the directory containing images
         csv_file: path to the CSV file with columns:
-                  filename, xTL, yTL, xTR, yTR, xBL, yBL, xBR, yBR
+                  filename, xTL, yTL, vTL, xTR, yTR, vTR, xBL, yBL, vBL, xBR, yBR, vBR
         transforms: a callable/transform object applied on (image, target)
         """
         self.root = root
@@ -40,17 +40,17 @@ class ChessboardCornersDataset(torch.utils.data.Dataset):
         img = F.to_tensor(img)
 
         # Extract corner coordinates from CSV
-        xTL, yTL = float(data['xTL']), float(data['yTL'])
-        xTR, yTR = float(data['xTR']), float(data['yTR'])
-        xBL, yBL = float(data['xBL']), float(data['yBL'])
-        xBR, yBR = float(data['xBR']), float(data['yBR'])
+        xTL, yTL, vTL = float(data['xTL']), float(data['yTL']), int(data['vTL'])
+        xTR, yTR, vTR = float(data['xTR']), float(data['yTR']), int(data['vTR'])
+        xBL, yBL, vBL = float(data['xBL']), float(data['yBL']), int(data['vBL'])
+        xBR, yBR, vBR = float(data['xBR']), float(data['yBR']), int(data['vBR'])
 
         # Create the keypoints array
         keypoints = [[
-            [xTL, yTL, 2],
-            [xTR, yTR, 2],
-            [xBL, yBL, 2],
-            [xBR, yBR, 2]
+            [xTL, yTL, vTL],
+            [xTR, yTR, vTR],
+            [xBL, yBL, vBL],
+            [xBR, yBR, vBR]
         ]]
         keypoints = torch.as_tensor(keypoints, dtype=torch.float32)
 
