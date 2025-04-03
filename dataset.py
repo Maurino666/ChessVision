@@ -67,8 +67,7 @@ class ChessboardCornersDataset(torch.utils.data.Dataset):
         target = {
             'boxes': boxes,
             'labels': labels,
-            'keypoints': keypoints[:, :, :2],        # shape (1,4,2)
-            'keypoints_visible': keypoints[:, :, 2],   # shape (1,4)
+            'keypoints': keypoints
         }
 
         # Apply transformations if provided
