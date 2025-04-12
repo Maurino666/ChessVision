@@ -4,12 +4,7 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 
 from dataset import ChessboardCornersDataset
-from train import get_keypoint_model, collate_fn
-
-
-# from dataset import ChessboardCornersDataset
-# from transforms import ...
-# from train import get_keypoint_model, collate_fn
+from train import get_keypoint_model
 
 def evaluate_model(
     model_path: str,
@@ -20,66 +15,66 @@ def evaluate_model(
     max_images: int = 5
 ):
     """
-    Loads a trained Keypoint R-CNN model from model_path, evaluates it on a small
-    portion of the dataset (dataset_root, csv_path), and prints or shows results.
-
-    Args:
-        model_path: path to the .pth file with model weights
-        dataset_root: directory with images
-        csv_path: path to CSV
-        num_keypoints: how many keypoints the model expects
-        device: 'cuda' or 'cpu'
-        max_images: how many images to run evaluation on and show predictions
+    Evaluates the trained Keypoint R-CNN on the resized dataset (no random augment).
+    Shows or prints bounding boxes and keypoints for a few images.
     """
     if device is None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-    device = torch.device(device)
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(f"Using device: {device}")
 
-    # Create the dataset (without data augmentation, e.g. only a resize if needed)
-    # dataset = ChessboardCornersDataset(root=dataset_root, csv_file=csv_path, transforms=test_transform)
-    dataset = ChessboardCornersDataset(root=dataset_root, csv_file=csv_path, transforms=None)
+    # Create dataset with the same resize, but no augmentations
+    dataset = ChessboardCornersDataset(
+        root=dataset_root,
+        csv_file=csv_path,
+        resize_hw=(800, 800)
+    )
 
-    # Create model
+    # Create the model
     model = get_keypoint_model(num_keypoints=num_keypoints)
-    print(f"Loading weights from {model_path}")
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.to(device)
     model.eval()
 
-    # Create a small DataLoader (batch_size=1)
-    loader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)
+    # Evaluate with batch_size=1 for simplicity
+    loader = DataLoader(dataset, batch_size=1, shuffle=False)
 
     print("Starting evaluation...")
     images_shown = 0
 
-
     for images, targets in loader:
-        images = [img.to(device) for img in images]
-        # No targets needed for inference, unless we want to compute loss
+        # 'images' is shape [1, 3, H, W] for batch_size=1
+        # Move to GPU
+        images = images.to(device)  # => [1, 3, 800, 800]
+
+        # Convert [1, 3, H, W] -> list of length 1, each [3, H, W]
+        images_list = list(images)  # => [ tensor([3, H, W]) ]
+
         with torch.no_grad():
-            predictions = model(images)
+            # Keypoint R-CNN expects a list of 3D tensors => pass images_list
+            predictions = model(images_list)
 
-        # Convert image to PIL for visualization
-        img_pil = F.to_pil_image(images[0].cpu())
-
-        # Let's print or visualize the prediction for keypoints
-        # predictions[0] should contain "boxes", "keypoints", "scores", ...
-        pred = predictions[0]
-        # E.g. "boxes", "keypoints", "scores", "keypoints_scores"
+        # Convert the first image back to PIL for visualization
+        # images_list[0] is shape [3, H, W], on GPU => move to CPU
+        img_pil = F.to_pil_image(images_list[0].cpu())
+        pred = predictions[0]  # The model returns a list of predictions (one per image in the list)
 
         print(f"Image {images_shown}:")
-        print("Predicted boxes:", pred["boxes"])
-        print("Predicted keypoints:", pred["keypoints"])
-        print("Scores:", pred["scores"])
+        print("Predicted boxes:", pred.get("boxes", None))
+        print("Predicted keypoints:", pred.get("keypoints", None))
+        print("Scores:", pred.get("scores", None))
 
-        # If you want to show the image + predicted keypoints:
         if images_shown < max_images:
             plt.figure()
             plt.imshow(img_pil)
-            # draw keypoints
-            kps = pred["keypoints"][0].cpu().numpy()  # If the model returns shape [N, K, 2]; check if you have multiple instances
-            for (x, y, v) in kps:
-                plt.scatter(x, y, c='red')
+
+            # If there are predicted keypoints, plot them
+            if "keypoints" in pred and len(pred["keypoints"]) > 0:
+                # keypoints[0] if multiple instances
+                # shape [num_kpts, 3]
+                kps = pred["keypoints"][0].cpu().numpy()
+                for (x, y, v) in kps:
+                    plt.scatter(x, y, c='red')
+
             plt.title(f"Prediction for image {images_shown}")
             plt.show()
 
@@ -88,12 +83,3 @@ def evaluate_model(
             break
 
     print("Evaluation complete.")
-
-def main():
-    model_path = "keypoint_rcnn_chessboard.pth"
-    dataset_root = "dataset/images"
-    csv_path = "dataset/corners.csv"
-    evaluate_model(model_path, dataset_root, csv_path)
-
-if __name__ == "__main__":
-    main()
