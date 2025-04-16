@@ -17,7 +17,7 @@ def main():
         num_keypoints=4,
         num_epochs=10,
         batch_size=8,
-        num_workers=4,
+        num_workers=8,
         lr=0.005,
         save_path=model_save_path
     )
