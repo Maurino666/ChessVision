@@ -3,9 +3,9 @@ import datetime
 
 def main():
     dataset_root = "dataset/images"
-    csv_path = "dataset/corners.csv"
+    csv_path = "../dataset/corners.csv"
 
-    model_save_path = f"trained_models/keypoint_rcnn_chessboard_{datetime.datetime.now():%Y%m%d_%H%M%S}.pth"
+    model_save_path = f"trained_models/board_recognition/keypoint_rcnn_chessboard_{datetime.datetime.now():%Y%m%d_%H%M%S}.pth"
 
     print("=== START TRAINING ===")
     train.train_model(

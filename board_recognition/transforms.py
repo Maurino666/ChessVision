@@ -5,7 +5,7 @@ from kornia.augmentation import AugmentationSequential
 from .utils import (
     boxes_to_corners,
     corners_to_boxes,
-    reorder_corners_by_quadrant
+    reorder_corners_row_column
 )
 
 def get_train_augmentations(p=0.5):
@@ -122,7 +122,7 @@ class BatchKorniaTransformWrapper:
                         vis_i[n] = 0
 
             # Reorder corners by quadrant => [TL, TR, BL, BR] if N=4
-            reordered_xy, reordered_vis = reorder_corners_by_quadrant(
+            reordered_xy, reordered_vis = reorder_corners_row_column(
                 kp_xy_i, vis_i, top_left_origin=True
             )
 
@@ -219,7 +219,7 @@ class KorniaTransformWrapper:
                         vis_b[i] = 0
 
             # 5) Reorder corners => [TL, TR, BL, BR] if N=4
-            reordered_xy, reordered_vis = reorder_corners_by_quadrant(
+            reordered_xy, reordered_vis = reorder_corners_row_column(
                 kp_xy_b, vis_b, top_left_origin=True
             )
 

@@ -1,67 +1,29 @@
 import torch
 
-def reorder_corners_by_quadrant(kp_xy: torch.Tensor,
-                                vis: torch.Tensor,
-                                top_left_origin: bool = True
-                                ) -> (torch.Tensor, torch.Tensor):
+def reorder_corners_row_column(kp_xy: torch.Tensor,
+                               vis: torch.Tensor,
+                               top_left_origin: bool = True):
     """
-    Reorders four corners into [TL, TR, BL, BR] based on their position
-    relative to the center. Assumes kp_xy.shape == [N, 2], vis.shape == [N],
-    typically N=4 for a single chessboard.
+    Robustly reorder four corners -> [TL, TR, BL, BR].
 
-    If top_left_origin=True => y increases downwards (standard image coordinates).
-      => 'Top' means smaller y, 'Bottom' means bigger y.
+    kp_xy : [4, 2]   (x, y) pixel coords
+    vis   : [4]      visibility flags
 
-    Returns:
-      - new_kp_xy: [4, 2]
-      - new_vis:   [4]
+    Works for any perspective as long as the board projects to a convex quad.
     """
-    N = kp_xy.shape[0]
-    # If we don't have exactly 4 corners, just skip reordering.
-    if N != 4:
-        return kp_xy, vis
+    if kp_xy.shape[0] != 4:
+        return kp_xy, vis        # nothing to do
 
-    # 1) Compute center
-    cx = kp_xy[:, 0].mean()
-    cy = kp_xy[:, 1].mean()
+    # 1) sort by y   (remember: y grows downwards)
+    sorted_idx = torch.argsort(kp_xy[:, 1])      # 0,1 = top row ; 2,3 = bottom row
+    top_idx, bottom_idx = sorted_idx[:2], sorted_idx[2:]
 
-    # 2) Classify each corner in TL/TR/BL/BR
-    corner_dict = {}
-    for i in range(N):
-        x, y = kp_xy[i]
-        dx = x - cx
-        dy = y - cy
+    # 2) sort each row by x
+    top_idx    = top_idx[torch.argsort(kp_xy[top_idx, 0])]
+    bottom_idx = bottom_idx[torch.argsort(kp_xy[bottom_idx, 0])]
 
-        # In top-left origin:
-        #   top => y < cy
-        #   bottom => y >= cy
-        #   left => x < cx
-        #   right => x >= cx
-        if dy < 0 and dx < 0:
-            corner_dict["TL"] = (kp_xy[i], vis[i])
-        elif dy < 0 and dx >= 0:
-            corner_dict["TR"] = (kp_xy[i], vis[i])
-        elif dy >= 0 and dx < 0:
-            corner_dict["BL"] = (kp_xy[i], vis[i])
-        else:
-            corner_dict["BR"] = (kp_xy[i], vis[i])
-
-    # 3) Build final arrays [TL, TR, BL, BR].
-    #    If a corner is missing from a quadrant, we default to (0,0) with vis=0.
-    final_xy = []
-    final_vis = []
-    for key in ["TL", "TR", "BL", "BR"]:
-        if key in corner_dict:
-            c_xy, c_vis = corner_dict[key]
-        else:
-            c_xy = torch.tensor([0.0, 0.0], device=kp_xy.device)
-            c_vis = torch.tensor(0, device=kp_xy.device)
-        final_xy.append(c_xy)
-        final_vis.append(c_vis)
-
-    new_kp_xy = torch.stack(final_xy, dim=0)  # => [4,2]
-    new_vis   = torch.stack(final_vis, dim=0) # => [4]
-    return new_kp_xy, new_vis
+    ordered_idx = torch.cat([top_idx, bottom_idx], dim=0)   # TL, TR, BL, BR
+    return kp_xy[ordered_idx], vis[ordered_idx]
 
 def boxes_to_corners(boxes: torch.Tensor) -> torch.Tensor:
     """
