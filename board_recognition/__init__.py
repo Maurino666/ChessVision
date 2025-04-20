@@ -19,7 +19,7 @@ from .inference import (
 
 # Low-level utils (optional to export)
 from .utils import (
-    reorder_corners_by_quadrant,
+    reorder_corners_row_column,
     boxes_to_corners,
     corners_to_boxes,
 )
@@ -43,7 +43,7 @@ __all__ = [
     "visualize_prediction",
 
     # Utility functions (optional)
-    "reorder_corners_by_quadrant",
+    "reorder_corners_row_column",
     "boxes_to_corners",
     "corners_to_boxes",
 ]
