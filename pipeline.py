@@ -1,7 +1,4 @@
-import torch.multiprocessing as mp
-
-import train
-import eval
+from board_recognition import train, eval
 import datetime
 
 def main():

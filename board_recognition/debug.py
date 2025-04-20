@@ -1,16 +1,15 @@
-import torch
 import torch.multiprocessing as mp
 from torch.utils.data import DataLoader
 from collections import defaultdict
 
-from dataset import ChessboardCornersDataset
-from train import batch_collate_fn
+from .dataset import ChessboardCornersDataset
+from .train import batch_collate_fn
 
 #This script is used to test the dataset and collate function.
 
 def test_dataset_and_collate(num_workers=2, batches_shown=2, batch_size = 2):
     dataset_root = "dataset/images"
-    csv_path = "dataset/corners.csv"
+    csv_path = "../dataset/corners.csv"
 
     dataset = ChessboardCornersDataset(
         root=dataset_root,

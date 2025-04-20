@@ -1,33 +1,15 @@
 import torch
 from torch.utils.data import DataLoader
-import torchvision
 from tqdm import tqdm
 
-from dataset import ChessboardCornersDataset
-from transforms import (
+from .collate import batch_collate_fn
+from .dataset import ChessboardCornersDataset
+from .model import get_keypoint_model
+from .transforms import (
     get_train_augmentations,
     BatchKorniaTransformWrapper,
 )
 
-from torchvision.models.detection import keypointrcnn_resnet50_fpn
-
-def get_keypoint_model(num_keypoints=4):
-    model = keypointrcnn_resnet50_fpn(weights="COCO_V1")
-    in_channels = model.roi_heads.keypoint_predictor.kps_score_lowres.in_channels
-    model.roi_heads.keypoint_predictor = \
-        torchvision.models.detection.keypoint_rcnn.KeypointRCNNPredictor(
-            in_channels=in_channels,
-            num_keypoints=num_keypoints
-        )
-    return model
-
-def batch_collate_fn(batch):
-    """
-    Minimal collate: just stack images [B,C,H,W] on CPU, and keep a list of targets.
-    """
-    images, targets = list(zip(*batch))
-    batch_imgs = torch.stack(images, dim=0)  # CPU tensor
-    return batch_imgs, list(targets)
 
 def train_model(
     dataset_root: str,

@@ -1,4 +1,4 @@
-from eval import evaluate_model
+from board_recognition.eval import evaluate_model
 
 def main():
     """
@@ -6,9 +6,9 @@ def main():
     senza eseguire alcun training.
     """
     # Parametri di base per l'evaluation
-    model_path = "trained_models/keypoint_rcnn_chessboard_20250415_170107.pth"  # Percorso al modello salvato
+    model_path = "trained_models/keypoint_rcnn_chessboard_20250416_140508.pth"  # Percorso al modello salvato
     dataset_root = "dataset/images"              # Cartella con le immagini
-    csv_path = "dataset/corners.csv"             # File CSV
+    csv_path = "dataset/corners.csv"  # File CSV
     num_keypoints = 4                            # Numero di keypoint
     device = None                                 # 'cuda' o 'cpu' (se None, autodetect)
     max_images = 100                           # Quante immagini mostrare

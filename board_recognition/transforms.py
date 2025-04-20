@@ -2,7 +2,7 @@ from typing import Dict, Any, List
 import torch
 import kornia.augmentation as K
 from kornia.augmentation import AugmentationSequential
-from utils import (
+from .utils import (
     boxes_to_corners,
     corners_to_boxes,
     reorder_corners_by_quadrant

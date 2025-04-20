@@ -3,8 +3,8 @@ import torchvision.transforms.functional as F
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 
-from dataset import ChessboardCornersDataset
-from train import get_keypoint_model
+from .dataset import ChessboardCornersDataset
+from .train import get_keypoint_model
 
 def evaluate_model(
     model_path: str,
