@@ -2,8 +2,8 @@ from board_recognition import train, eval
 import datetime
 
 def main():
-    dataset_root = "dataset/images"
-    csv_path = "../dataset/corners.csv"
+    dataset_root = "datasets/images"
+    csv_path = "datasets/corners.csv"
 
     model_save_path = f"trained_models/board_recognition/keypoint_rcnn_chessboard_{datetime.datetime.now():%Y%m%d_%H%M%S}.pth"
 
