@@ -89,6 +89,9 @@ def evaluate_model(
         dataset_root: str | Path,
         csv_path: str | Path,
         device: str | None = None,
+        # ── optional batch size
+        batch_size: int = 4,
+        # ── optional epoch number
         epoch: int | None = None
     ):
 
@@ -96,7 +99,7 @@ def evaluate_model(
     ds = ChessboardCornersDataset(root=dataset_root,
                                   csv_file=csv_path,
                                   resize_hw=(800, 800))
-    dl = DataLoader(ds, batch_size=1, shuffle=False,
+    dl = DataLoader(ds, batch_size=batch_size, shuffle=False,
                     collate_fn=batch_collate_fn)
 
     # Create a metric for mean Average Precision
@@ -110,39 +113,39 @@ def evaluate_model(
     keypt_sum = {}
     n_objects = 0
 
-    for images, targets in tqdm(dl, desc="Evaluating", unit="img"):
+    for images, targets in tqdm(dl, desc="Evaluating", unit="batch"):
 
 
         with torch.no_grad():
             preds = model(list(images.to(device)))
-        pred = preds[0] # one prediction dict
-        tgt = {k: v.to(device) for k, v in targets[0].items()}  # one GT dict
-        update_bbox_map(map_metric, pred, tgt)
 
-        #Keypoint evaluation metrics
-        pred_xy = pred["keypoints"][0, :, :2]
-        gt_xy = tgt["keypoints"][0, :, :2]
+        for pred, tgt in zip(preds, targets):
 
-        # Compute L2 distance for keypoints
-        diff = pred_xy - gt_xy  # difference
-        dists = torch.linalg.norm(diff, dim=-1)
+            tgt = {k: v.to(device) for k, v in targets[0].items()}  # one GT dict
+            update_bbox_map(map_metric, pred, tgt)
 
-        # Compute diagonal of the bounding box for PCK normalization
-        x_min, y_min, x_max, y_max = tgt["boxes"][0]
-        diag = torch.sqrt((x_max - x_min) ** 2 + (y_max - y_min) ** 2).item()
+            #Keypoint evaluation metrics
+            pred_xy = pred["keypoints"][0, :, :2]
+            gt_xy = tgt["keypoints"][0, :, :2]
 
-        img_stats = {
-            "l2_px": dists.mean().item(), # mean L2 distance in pixels
-            **pck(dists, thresh=(3., 5.)), # PCK at 3 px and 5 px
-            **pck(dists, alpha=(.05, .10), bbox_diag=diag) # PCK at 5% and 10% of bbox diagonal
-        }
+            # Compute L2 distance for keypoints
+            diff = pred_xy - gt_xy  # difference
+            dists = torch.linalg.norm(diff, dim=-1)
 
-        for k, v in img_stats.items():
-            if k not in keypt_sum:
-                keypt_sum[k] = 0.0
-            keypt_sum[k] += v
+            # Compute diagonal of the bounding box for PCK normalization
+            x_min, y_min, x_max, y_max = tgt["boxes"][0]
+            diag = torch.sqrt((x_max - x_min) ** 2 + (y_max - y_min) ** 2).item()
 
-        n_objects += 1
+            img_stats = {
+                "l2_px": dists.mean().item(), # mean L2 distance in pixels
+                **pck(dists, thresh=(3., 5.)), # PCK at 3 px and 5 px
+                **pck(dists, alpha=(.05, .10), bbox_diag=diag) # PCK at 5% and 10% of bbox diagonal
+            }
+
+            for k, v in img_stats.items():
+                keypt_sum[k] = keypt_sum.get(k, 0.0) + v
+
+            n_objects += 1
 
     stats = {"mean_" + k: v / n_objects for k, v in keypt_sum.items()}
 
@@ -176,6 +179,8 @@ def evaluate_trained_model(
         # ── optional persistence
         output_dir: str | Path | None = None,
         filename: str = "metrics.json",
+        # ── optional batch size
+        batch_size: int = 4,
         # ── optional epoch number
         epoch: int | None = None
     ) -> Dict[str, float]:
@@ -188,6 +193,7 @@ def evaluate_trained_model(
         dataset_root=dataset_root,
         csv_path=csv_path,
         device=device,
+        batch_size=batch_size,
         epoch=epoch
     )
 

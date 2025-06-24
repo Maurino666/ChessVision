@@ -35,10 +35,11 @@ RUNS_BASE.mkdir(parents=True, exist_ok=True)
 
 # Hyper‑parameters (edit freely)
 NUM_EPOCHS    = 1
-BATCH_SIZE    = 8
+BATCH_SIZE    = 6
 NUM_WORKERS   = 8
 LEARNING_RATE = 0.005
 NUM_KEYPOINTS = 4
+EVAL_BATCH_SIZE = 4
 
 # ---------------------------------------------------------------------------
 # Main orchestration
@@ -51,6 +52,7 @@ def main(
     num_workers: int = NUM_WORKERS,
     lr: float = LEARNING_RATE,
     num_keypoints: int = NUM_KEYPOINTS,
+    eval_batch_size: int = EVAL_BATCH_SIZE,
 ):
     """Train on *train* split, then evaluate on *test* split in one go."""
 
@@ -72,6 +74,8 @@ def main(
         num_workers=num_workers,
         lr=lr,
         save_path=str(run_dir),
+        eval_batch_size = eval_batch_size,
+        debug_max_iterations = 20
     )
 
 if __name__ == "__main__":

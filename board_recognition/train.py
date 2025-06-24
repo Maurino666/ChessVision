@@ -28,12 +28,16 @@ def train_model(
     device: str = None,
     save_path: str = "run/board_recognition/train",
     eval_n = 1, # Evaluate every N epochs
+    eval_batch_size: int | None = None,
     debug_max_iterations: int or None = None
 ):
     # device setup
     if device is None:
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f"Using device: {device}")
+
+    if eval_batch_size is None:
+        eval_batch_size = batch_size
 
     train_root = Path(dataset_root) / "train"
     train_csv = train_root / csv_name
@@ -116,13 +120,16 @@ def train_model(
         # End of epoch: evaluate the model on the test set
         if epoch % eval_n == 0 or epoch == num_epochs - 1:
             model.eval()
-            all_stats.append(evaluate_model(
-                model=model,
-                dataset_root=test_root / "images",
-                csv_path=test_csv,
-                device=device,
-                epoch = epoch + 1
-            ))
+            all_stats.append(
+                evaluate_model(
+                    model=model,
+                    dataset_root=test_root / "images",
+                    csv_path=test_csv,
+                    device=device,
+                    batch_size = eval_batch_size,
+                    epoch = epoch + 1
+                )
+            )
         print(f"Epoch {epoch+1}/{num_epochs} - Loss: {total_loss:.4f}")
 
     # Write metric plots to the output directory
