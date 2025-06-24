@@ -2,8 +2,8 @@
 
 path: C:/Users/mauri/PycharmProjects/ChessVision/datasets   # full folder path
 
-train: C:/Users/mauri/PycharmProjects/ChessVision/datasets/train.txt
-val:   C:/Users/mauri/PycharmProjects/ChessVision/datasets/val.txt
+train: C:/Users/mauri/PycharmProjects/ChessVision/datasets/synthetic_dataset/train.txt
+val:   C:/Users/mauri/PycharmProjects/ChessVision/datasets/synthetic_dataset/val.txt
 
 # If you later add a held‑out test set, uncomment the next line
 # test: C:/Users/mauri/PycharmProjects/ChessVision/dataset/test.txt

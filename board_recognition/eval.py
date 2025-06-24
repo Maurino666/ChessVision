@@ -1,85 +1,215 @@
-import torch
-import torchvision.transforms.functional as F
-from torch.utils.data import DataLoader
-import matplotlib.pyplot as plt
+from __future__ import annotations
+from pathlib import Path
 
+from torchvision.models.detection import KeypointRCNN
+from tqdm.auto import tqdm
+
+import torch
+from torch.utils.data import DataLoader
+from torchmetrics.detection.mean_ap import MeanAveragePrecision
+from .inference import load_model
 from .dataset import ChessboardCornersDataset
-from .train import get_keypoint_model
+
+from typing import Dict
+
+
+
+# ---------------------------------------------------------------------------
+# Helper utilities
+# ---------------------------------------------------------------------------
+
+# PCK: Percentage of Correct Keypoints
+def pck(
+        dists: torch.Tensor,
+        *,
+        thresh: tuple[float, ...] | None = None,   # px values
+        alpha:  tuple[float, ...] | None = None,   # factors
+        bbox_diag: float | None = None
+    ) -> dict[str, float]:
+
+
+    # Validate inputs
+    if (thresh is None) == (alpha is None):
+        raise ValueError("Provide thresh OR alpha, not both.")
+    if alpha and bbox_diag is None:
+        raise ValueError("Need bbox_diag for alpha mode.")
+
+    out = {}
+
+    # --- absolute-threshold branch -----------------------------------------
+    if thresh is not None:
+        for t in thresh:
+            acc = (dists < t).float().mean().item()
+            out[f"pck_{int(t)}px"] = acc
+        return out
+
+    # --- normalised-threshold branch ---------------------------------------
+    for a in alpha:
+        t_px = a * bbox_diag
+        acc = (dists < t_px).float().mean().item()
+        key = f"pck_norm_{a:0.2f}".replace(".", "")  # e.g. 0.05 -> 'pck_norm_005'
+        out[key] = acc
+    return out
+
+
+# mAP update function for bounding boxes
+def update_bbox_map(
+        metric: MeanAveragePrecision,
+        pred:   Dict[str, torch.Tensor],
+        tgt:    Dict[str, torch.Tensor],
+    ) -> None:
+
+    gt_boxes = {
+        "boxes":  tgt["boxes"].cpu(),
+        "labels": tgt["labels"].cpu()
+    }
+
+    pred_boxes = {
+        "boxes":  pred["boxes"].cpu(),
+        "scores": pred["scores"].cpu(),
+        # If your model does not output class labels, make them all 1
+        "labels": pred.get("labels",
+                   torch.ones_like(pred["scores"]).int()).cpu()
+    }
+
+    # torchmetrics expects *lists* of dicts, even for batch_size = 1
+    metric.update([pred_boxes], [gt_boxes])
+
+
+# ---------------------------------------------------------------------------
+# Public APIs
+# ---------------------------------------------------------------------------
+
+from board_recognition.collate import batch_collate_fn  # imported once
+
 
 def evaluate_model(
-    model_path: str,
-    dataset_root: str,
-    csv_path: str,
-    num_keypoints: int = 4,
-    device: str = None,
-    max_images: int = 5
-):
-    """
-    Evaluates the trained Keypoint R-CNN on the resized dataset (no random augment).
-    Shows or prints bounding boxes and keypoints for a few images.
-    """
-    if device is None:
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    print(f"Using device: {device}")
+        *,
+        model: KeypointRCNN,
+        dataset_root: str | Path,
+        csv_path: str | Path,
+        device: str | None = None,
+        epoch: int | None = None
+    ):
 
-    # Create dataset with the same resize, but no augmentations
-    dataset = ChessboardCornersDataset(
-        root=dataset_root,
-        csv_file=csv_path,
-        resize_hw=(800, 800)
+    # Load the dataset e data loader
+    ds = ChessboardCornersDataset(root=dataset_root,
+                                  csv_file=csv_path,
+                                  resize_hw=(800, 800))
+    dl = DataLoader(ds, batch_size=1, shuffle=False,
+                    collate_fn=batch_collate_fn)
+
+    # Create a metric for mean Average Precision
+    map_metric = MeanAveragePrecision(
+        box_format="xyxy",  # xmin, ymin, xmax, ymax
+        iou_type="bbox",  # bounding-box mAP
+        class_metrics=True  # keep per-class / per-IoU PR tensors
     )
 
-    # Create the model
-    model = get_keypoint_model(num_keypoints=num_keypoints)
-    model.load_state_dict(torch.load(model_path, map_location=device))
-    model.to(device)
-    model.eval()
+    # Partial sums dictionary
+    keypt_sum = {}
+    n_objects = 0
 
-    # Evaluate with batch_size=1 for simplicity
-    loader = DataLoader(dataset, batch_size=1, shuffle=False)
+    for images, targets in tqdm(dl, desc="Evaluating", unit="img"):
 
-    print("Starting evaluation...")
-    images_shown = 0
-
-    for images, targets in loader:
-        # 'images' is shape [1, 3, H, W] for batch_size=1
-        # Move to GPU
-        images = images.to(device)  # => [1, 3, 800, 800]
-
-        # Convert [1, 3, H, W] -> list of length 1, each [3, H, W]
-        images_list = list(images)  # => [ tensor([3, H, W]) ]
 
         with torch.no_grad():
-            # Keypoint R-CNN expects a list of 3D tensors => pass images_list
-            predictions = model(images_list)
+            preds = model(list(images.to(device)))
+        pred = preds[0] # one prediction dict
+        tgt = {k: v.to(device) for k, v in targets[0].items()}  # one GT dict
+        update_bbox_map(map_metric, pred, tgt)
 
-        # Convert the first image back to PIL for visualization
-        # images_list[0] is shape [3, H, W], on GPU => move to CPU
-        img_pil = F.to_pil_image(images_list[0].cpu())
-        pred = predictions[0]  # The model returns a list of predictions (one per image in the list)
+        #Keypoint evaluation metrics
+        pred_xy = pred["keypoints"][0, :, :2]
+        gt_xy = tgt["keypoints"][0, :, :2]
 
-        print(f"Image {images_shown}:")
-        print("Predicted boxes:", pred.get("boxes", None))
-        print("Predicted keypoints:", pred.get("keypoints", None))
-        print("Scores:", pred.get("scores", None))
+        # Compute L2 distance for keypoints
+        diff = pred_xy - gt_xy  # difference
+        dists = torch.linalg.norm(diff, dim=-1)
 
-        if images_shown < max_images:
-            plt.figure()
-            plt.imshow(img_pil)
+        # Compute diagonal of the bounding box for PCK normalization
+        x_min, y_min, x_max, y_max = tgt["boxes"][0]
+        diag = torch.sqrt((x_max - x_min) ** 2 + (y_max - y_min) ** 2).item()
 
-            # If there are predicted keypoints, plot them
-            if "keypoints" in pred and len(pred["keypoints"]) > 0:
-                # keypoints[0] if multiple instances
-                # shape [num_kpts, 3]
-                kps = pred["keypoints"][0].cpu().numpy()
-                for (x, y, v) in kps:
-                    plt.scatter(x, y, c='red')
+        img_stats = {
+            "l2_px": dists.mean().item(), # mean L2 distance in pixels
+            **pck(dists, thresh=(3., 5.)), # PCK at 3 px and 5 px
+            **pck(dists, alpha=(.05, .10), bbox_diag=diag) # PCK at 5% and 10% of bbox diagonal
+        }
 
-            plt.title(f"Prediction for image {images_shown}")
-            plt.show()
+        for k, v in img_stats.items():
+            if k not in keypt_sum:
+                keypt_sum[k] = 0.0
+            keypt_sum[k] += v
 
-        images_shown += 1
-        if images_shown >= max_images:
-            break
+        n_objects += 1
 
-    print("Evaluation complete.")
+    stats = {"mean_" + k: v / n_objects for k, v in keypt_sum.items()}
+
+    results = map_metric.compute()  # dict of tensors
+
+    # 2) Pull out the two most common fields and convert to plain floats
+    stats["bbox_map"] = results["map"].item()  # average over IoU 0.50-0.95
+    stats["bbox_map_50"] = results["map_50"].item()  # AP at IoU 0.50 (a bit looser)
+
+    # 3) (Optional) keep precision/recall tensors for the PR curve
+    # stats["pr_precision"] = results["precision"]  # tensor [IoU, 101]
+    # stats["pr_recall"] = results["recall"]  # same shape]
+
+    if epoch is not None:
+        stats["epoch"] = epoch
+
+    return stats
+
+
+# ---------------------------------------------------------------------------
+
+import json
+
+def evaluate_trained_model(
+        *,
+        model_path: str | Path,
+        dataset_root: str | Path,
+        csv_path: str | Path,
+        num_keypoints: int = 4,
+        device: str | None = None,
+        # ── optional persistence
+        output_dir: str | Path | None = None,
+        filename: str = "metrics.json",
+        # ── optional epoch number
+        epoch: int | None = None
+    ) -> Dict[str, float]:
+    # Load the model
+    model = load_model(model_path, num_keypoints=num_keypoints, device=device)
+
+    # Evaluate the model
+    stats = evaluate_model(
+        model=model,
+        dataset_root=dataset_root,
+        csv_path=csv_path,
+        device=device,
+        epoch=epoch
+    )
+
+    if output_dir is not None and output_dir != "":
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        serializable = {
+            k: (v.item() if torch.is_tensor(v) else v)
+            for k, v in stats.items()
+        }
+
+        out_path = output_dir / filename
+        with out_path.open("w") as fp:
+            json.dump(serializable, fp, indent=2)
+
+        print(f"[Eval-Save] Metrics written to {out_path}")
+
+    return stats
+
+
+
+
+
+

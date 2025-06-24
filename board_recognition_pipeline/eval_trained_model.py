@@ -6,7 +6,7 @@ def main():
     senza eseguire alcun training.
     """
     # Parametri di base per l'evaluation
-    model_path = "trained_models/board_recognition/keypoint_rcnn_chessboard_20250420_182043.pth"  # Percorso al modello salvato
+    model_path = "runs/board_recognition/keypoint_rcnn_chessboard_20250420_182043.pth"  # Percorso al modello salvato
     dataset_root = "datasets/images"              # Cartella con le immagini
     csv_path = "datasets/corners.csv"  # File CSV
     num_keypoints = 4                            # Numero di keypoint
