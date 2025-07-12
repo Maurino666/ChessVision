@@ -34,7 +34,7 @@ RUNS_BASE = PROJECT_ROOT / "runs" / "board_recognition"
 RUNS_BASE.mkdir(parents=True, exist_ok=True)
 
 # Hyper‑parameters (edit freely)
-NUM_EPOCHS    = 1
+NUM_EPOCHS    = 20
 BATCH_SIZE    = 6
 NUM_WORKERS   = 8
 LEARNING_RATE = 0.005
@@ -74,8 +74,7 @@ def main(
         num_workers=num_workers,
         lr=lr,
         save_path=str(run_dir),
-        eval_batch_size = eval_batch_size,
-        debug_max_iterations = 20
+        eval_batch_size = eval_batch_size
     )
 
 if __name__ == "__main__":

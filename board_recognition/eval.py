@@ -121,7 +121,7 @@ def evaluate_model(
 
         for pred, tgt in zip(preds, targets):
 
-            tgt = {k: v.to(device) for k, v in targets[0].items()}  # one GT dict
+            tgt = {k: v.to(device) for k, v in tgt.items()}  # one GT dict
             update_bbox_map(map_metric, pred, tgt)
 
             #Keypoint evaluation metrics
@@ -214,6 +214,67 @@ def evaluate_trained_model(
 
     return stats
 
+import matplotlib.pyplot as plt
+import torchvision.transforms.functional as F
+
+# ─────────────────────────────────────────────────────────────
+# Interactive preview helper
+# ─────────────────────────────────────────────────────────────
+def preview_predictions(
+    *,
+    model: KeypointRCNN,
+    dataset_root: str | Path,
+    csv_path: str | Path,
+    device: str | None = None,
+    batch_size: int = 4,
+    max_examples: int = 6,
+):
+    """
+    Show GT (green) vs prediction (red) for the first *max_examples* images.
+
+    Nothing is saved; useful for sanity-checking scale or obvious errors.
+    """
+    device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+
+    ds = ChessboardCornersDataset(root=dataset_root,
+                                  csv_file=csv_path,
+                                  resize_hw=(800, 800))
+    dl = DataLoader(ds, batch_size=batch_size, shuffle=False,
+                    collate_fn=batch_collate_fn)
+
+    shown = 0
+    plt.figure(figsize=(6, 6))
+
+    for images, targets in dl:
+        with torch.no_grad():
+            preds = model(list(images.to(device)))
+
+        for img_t, pred, tgt in zip(images, preds, targets):
+            # ── plot
+            ax = plt.gca()
+            ax.imshow(F.to_pil_image(img_t))     # channel order OK
+            ax.axis("off")
+
+            # GT in green
+            gt_kps = tgt["keypoints"][0, :, :2]
+            ax.scatter(gt_kps[:, 0], gt_kps[:, 1],
+                       s=30, c="lime", marker="o", label="GT")
+
+            # Pred in red
+            if pred["keypoints"].numel():
+                pred_kps = pred["keypoints"][0, :, :2].cpu()
+                ax.scatter(pred_kps[:, 0], pred_kps[:, 1],
+                           s=30, c="red", marker="x", label="Pred")
+
+            # title / scores
+            if "scores" in pred:
+                score = float(pred["scores"][0])
+                ax.set_title(f"score={score:.2f}")
+
+            plt.show()
+            shown += 1
+            if shown >= max_examples:
+                return
 
 
 
