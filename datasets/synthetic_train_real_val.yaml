@@ -1,0 +1,23 @@
+# ChessVision – synthetic train + real validation
+path: datasets                # the file lives inside datasets/, so "." = datasets/
+
+train:
+  - synthetic_dataset/train/images
+
+val:
+  - real_dataset/train/images
+  - real_dataset/test/images   # rename to val/ if you prefer
+
+names:
+  0: white_pawn
+  1: black_pawn
+  2: white_rook
+  3: black_rook
+  4: white_knight
+  5: black_knight
+  6: white_bishop
+  7: black_bishop
+  8: white_queen
+  9: black_queen
+  10: white_king
+  11: black_king
