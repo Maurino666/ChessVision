@@ -42,7 +42,7 @@ def train_model(
     train_root = Path(dataset_root) / "train"
     train_csv = train_root / csv_name
 
-    test_root = Path(dataset_root) / "test"
+    test_root = Path(dataset_root) / "val"
     test_csv = test_root / csv_name
 
     # dataset and dataloader setup

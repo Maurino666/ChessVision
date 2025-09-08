@@ -5,7 +5,6 @@ train:
   - synthetic_dataset/train/images
 
 val:
-  - real_dataset/train/images
   - real_dataset/test/images   # rename to val/ if you prefer
 
 names:

@@ -22,7 +22,7 @@ def _project_root() -> Path:
 
 
 PROJECT_ROOT = _project_root()
-DATASET_DIR  = PROJECT_ROOT / "datasets" / "synthetic_dataset"
+DATASET_DIR  = PROJECT_ROOT / "datasets" / "synthetic_dataset_3"
 
 TRAIN_ROOT = DATASET_DIR / "train" / "images"
 TRAIN_CSV  = DATASET_DIR / "train" / "corners.csv"
