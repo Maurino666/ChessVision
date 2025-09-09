@@ -26,7 +26,7 @@ from pathlib import Path
 # ----------------------------
 SERVER_URL = "http://127.0.0.1:8000/infer"
 WHITE_SIDE = "south"  # south|north|west|east
-IMAGE_PATH = r"datasets/synthetic_dataset_3/test/images/chess_9001.png"
+IMAGE_PATH = r"datasets/synthetic_dataset_3/test/images/chess_9006.png"
 SAVE_OVERLAY = "overlay_result.jpg"  # set to None to skip saving
 
 # Virtual board size used by the server when building the homography.
@@ -62,17 +62,17 @@ def fen_indices_to_prerotation(row_fen: int, col_fen: int, white_side: str):
         return row_fen, col_fen
     elif white_side == "north":
         # Server did: grid_fen = rotate180(grid_img)
-        return (s - 1 - row_fen, s - 1 - col_fen)
+        return s - 1 - row_fen, s - 1 - col_fen
     elif white_side == "west":
         # Server did: grid_fen = rotate90_ccw(grid_img)
         # From implementation, inverse mapping is:
         # pre_row = fen_col ; pre_col = (s - 1 - fen_row)
-        return (col_fen, s - 1 - row_fen)
+        return col_fen, s - 1 - row_fen
     elif white_side == "east":
         # Server did: grid_fen = rotate90_cw(grid_img)
         # Inverse mapping:
         # pre_row = (s - 1 - fen_col) ; pre_col = fen_row
-        return (s - 1 - col_fen, row_fen)
+        return s - 1 - col_fen, row_fen
     else:
         raise ValueError("white_side must be one of: south,north,west,east")
 
