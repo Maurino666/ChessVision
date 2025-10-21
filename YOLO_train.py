@@ -6,122 +6,70 @@
 from ultralytics import YOLO
 
 def main() -> None:
-    model = YOLO("yolov10s.pt")                         # COCO-pretrained backbone
-
+    model = YOLO("runs/detect/full_aug_1024_high/weights/best.pt")
     model.train(
-        data="datasets/real2.yaml",                 # your dataset
-        epochs=150,
-        imgsz=800,
-        batch=-1,
-        patience=10,
-
-        # ----------   COLOUR JITTER   ------------------------
-        #hsv_h=0.05,     # hue   ±5 %
-        #hsv_s=0.80,     # sat.  ±80 %
-        #hsv_v=0.40,     # value ±50 %
-
-        # ----------   GEOMETRIC JITTER -----------------------
-        #degrees=30,      # small tilt
-        #translate=0.20, # ±20 % shift
-        #scale=0.70,     # zoom range [0.7, 1/0.7]
-        #shear=0.0,
-        #perspective=0.0007,
-
-        # ----------   FLIPS ----------------------------------
-        #fliplr=0.5,     # horizontal flip
-        #flipud=0.0,     # NO vertical flip (keeps board legal)
-
-        # ----------   MIXED-IMAGE AUGS -----------------------
-        #mosaic=1.0,          # on by default
-        #copy_paste=0.20,     # 20 % chance inside mosaic
-        #mixup=0.20,          # 20 % chance to blend two mosaics
-        #close_mosaic=20,     # disable mosaic for final 20 epochs
-
-        # ----------   MISC -----------------------------------
-        cache=False,         # keep RAM usage predictable
-        device="cuda:0",     # change to "cpu" if no GPU
-        name="real_train_2",
-
-        verbose=True,       # print training progress
+        data="datasets/combined_kq_mix.yaml",
+        epochs=15,
+        imgsz=1024,
+        batch=4,
+        patience=8,
+        hsv_h=0.03, hsv_s=0.60, hsv_v=0.30,
+        degrees=5, translate=0.10, scale=0.50, shear=0.0, perspective=0.0003,
+        fliplr=0.5, flipud=0.0,
+        mosaic=0.2, copy_paste=0.0, mixup=0.0, close_mosaic=10,
+        lr0=0.001, lrf=0.1, momentum=0.937, weight_decay=0.0005,
+        freeze=10,
+        cls=1.5, box=7.5, dfl=1.0,
+        device="cuda:0",
+        project="runs/detect/full_aug_1024_high",
+        name="finetune_kq_stage1_mix_frozen",
+        verbose=True, plots=True, seed=42
     )
 
-    model = YOLO("yolov10s.pt")
+
+    model = YOLO("runs/detect/full_aug_1024_high/finetune_kq_stage1_mix_frozen/weights/best.pt")
     model.train(
-        data="datasets/real.yaml",  # your dataset
-        epochs=150,
-        imgsz=800,
-        batch=-1,
-        patience=10,
+            data="datasets/combined_kq_mix.yaml",
+            epochs=8,
+            imgsz=1024,
+            batch=4,
+            patience=6,
+            hsv_h=0.03, hsv_s=0.60, hsv_v=0.30,
+            degrees=5, translate=0.10, scale=0.50, shear=0.0, perspective=0.0003,
+            fliplr=0.5, flipud=0.0,
+            mosaic=0.2, copy_paste=0.0, mixup=0.0, close_mosaic=10,
+            lr0=0.0005, lrf=0.1, momentum=0.937, weight_decay=0.0005,
+            freeze=0,
+            cls=1.5, box=7.5, dfl=1.0,
+            device="cuda:0",
+            project="runs/detect/full_aug_1024_high",
+            name="finetune_kq_stage2_unfrozen",
+            verbose=True, plots=True, seed=42
+        )
 
-        # ----------   COLOUR JITTER   ------------------------
-        hsv_h=0.05,     # hue   ±5 %
-        hsv_s=0.80,     # sat.  ±80 %
-        hsv_v=0.40,     # value ±50 %
-
-        # ----------   GEOMETRIC JITTER -----------------------
-        degrees=30,      # small tilt
-        translate=0.20, # ±20 % shift
-        scale=0.70,     # zoom range [0.7, 1/0.7]
-        shear=0.0,
-        perspective=0.0007,
-
-        # ----------   FLIPS ----------------------------------
-        fliplr=0.5,     # horizontal flip
-        flipud=0.0,     # NO vertical flip (keeps board legal)
-
-        # ----------   MIXED-IMAGE AUGS -----------------------
-        mosaic=1.0,          # on by default
-        copy_paste=0.20,     # 20 % chance inside mosaic
-        mixup=0.20,          # 20 % chance to blend two mosaics
-        close_mosaic=20,     # disable mosaic for final 20 epochs
-
-        # ----------   MISC -----------------------------------
-        cache=False,  # keep RAM usage predictable
-        device="cuda:0",  # change to "cpu" if no GPU
-        name="full_aug_real_train",
-
-        verbose=True,  # print training progress
-    )
-
-    model = YOLO("yolov10s.pt")
+    model = YOLO("runs/detect/full_aug_1024_high/finetune_kq_stage2_unfrozen/weights/best.pt")
     model.train(
-        data="datasets/real2.yaml",  # your dataset
-        epochs=150,
-        imgsz=800,
-        batch=-1,
-        patience=10,
-
-        # ----------   COLOUR JITTER   ------------------------
-        hsv_h=0.05,  # hue   ±5 %
-        hsv_s=0.80,  # sat.  ±80 %
-        hsv_v=0.40,  # value ±50 %
-
-        # ----------   GEOMETRIC JITTER -----------------------
-        degrees=30,  # small tilt
-        translate=0.20,  # ±20 % shift
-        scale=0.70,  # zoom range [0.7, 1/0.7]
-        shear=0.0,
-        perspective=0.0007,
-
-        # ----------   FLIPS ----------------------------------
-        fliplr=0.5,  # horizontal flip
-        flipud=0.0,  # NO vertical flip (keeps board legal)
-
-        # ----------   MIXED-IMAGE AUGS -----------------------
-        mosaic=1.0,  # on by default
-        copy_paste=0.20,  # 20 % chance inside mosaic
-        mixup=0.20,  # 20 % chance to blend two mosaics
-        close_mosaic=20,  # disable mosaic for final 20 epochs
-
-        # ----------   MISC -----------------------------------
-        cache=False,  # keep RAM usage predictable
-        device="cuda:0",  # change to "cpu" if no GPU
-        name="full_aug_real_train_2",
-
-        verbose=True,  # print training progress
+        data="datasets/combined_kq_mix.yaml",
+        epochs=5,
+        imgsz=1280,
+        batch=2,
+        patience=4,
+        hsv_h=0.02, hsv_s=0.50, hsv_v=0.25,
+        degrees=3, translate=0.08, scale=0.45, shear=0.0, perspective=0.0002,
+        fliplr=0.5, flipud=0.0,
+        mosaic=0.0, copy_paste=0.0, mixup=0.0, close_mosaic=0,
+        lr0=0.0003, lrf=0.1, momentum=0.937, weight_decay=0.0005,
+        freeze=0,
+        cls=1.5, box=7.5, dfl=1.0,
+        device="cuda:0",
+        project="runs/detect/full_aug_1024_high",
+        name="finetune_kq_stage3_highres",
+        verbose=True, plots=True, seed=42
     )
 
 
 
 if __name__ == "__main__":
     main()
+
+
