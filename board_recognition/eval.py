@@ -9,10 +9,16 @@ from torch.utils.data import DataLoader
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
 from .inference import load_model
 from .dataset import ChessboardCornersDataset
+from .utils import reorder_corners_row_column
 
 from typing import Dict
 
-
+def _pick_pred_index(pred: Dict[str, torch.Tensor]) -> int:
+    """Pick predicted instance to evaluate: highest score if available, else 0."""
+    scores = pred.get("scores", None)
+    if scores is not None and scores.numel() > 0:
+        return int(scores.argmax().item())
+    return 0
 
 # ---------------------------------------------------------------------------
 # Helper utilities
@@ -115,31 +121,69 @@ def evaluate_model(
 
     for images, targets in tqdm(dl, desc="Evaluating", unit="batch"):
 
+        # Ensure tensors go to device (your collate returns a list of tensors)
+        images_on_dev = [im.to(device) for im in images]
 
         with torch.no_grad():
-            preds = model(list(images.to(device)))
+            preds = model(images_on_dev)
 
         for pred, tgt in zip(preds, targets):
 
-            tgt = {k: v.to(device) for k, v in tgt.items()}  # one GT dict
+            tgt = {k: v.to(device) for k, v in tgt.items()}
+
+            # --- bbox mAP update (safe even with 0 predictions) ---
             update_bbox_map(map_metric, pred, tgt)
 
-            #Keypoint evaluation metrics
-            pred_xy = pred["keypoints"][0, :, :2]
-            gt_xy = tgt["keypoints"][0, :, :2]
+            # --- guards: skip KP eval if empty pred/gt ---
+            if ("keypoints" not in pred) or (pred["keypoints"] is None) or (pred["keypoints"].numel() == 0):
+                continue
+            if ("keypoints" not in tgt) or (tgt["keypoints"] is None) or (tgt["keypoints"].numel() == 0):
+                continue
 
-            # Compute L2 distance for keypoints
-            diff = pred_xy - gt_xy  # difference
-            dists = torch.linalg.norm(diff, dim=-1)
+            # Select predicted instance
+            pred_idx = _pick_pred_index(pred)
+            if pred_idx >= pred["keypoints"].shape[0]:
+                continue  # defensive
 
-            # Compute diagonal of the bounding box for PCK normalization
+            # Shapes: pred["keypoints"] -> [N, K, 3], tgt["keypoints"] -> [G, K, 3] or [K, 3]
+            pred_xy_all = pred["keypoints"][pred_idx, :, :2]  # [K,2]
+            gt_kps_all = tgt["keypoints"]
+            gt_xy_all = gt_kps_all[0, :, :2] if gt_kps_all.ndim == 3 else gt_kps_all[:, :2]  # [K,2]
+            gt_vis_all = gt_kps_all[0, :, 2] if gt_kps_all.ndim == 3 else gt_kps_all[:, 2]  # [K]
+
+            # We evaluate the first 4 board corners; reorder to [TL, TR, BL, BR]
+            if pred_xy_all.shape[0] < 4 or gt_xy_all.shape[0] < 4:
+                continue
+
+            gt_xy_4 = gt_xy_all[:4]
+            gt_vis_4 = gt_vis_all[:4]
+            pred_xy_4 = pred_xy_all[:4]
+
+            # Reorder both sets using your row/column rule
+            gt_xy_4, gt_vis_4 = reorder_corners_row_column(gt_xy_4, gt_vis_4)
+            # For the prediction, we only need the coordinates; pass a dummy vis (same shape) or reuse gt_vis_4
+            pred_dummy_vis = torch.ones_like(gt_vis_4)
+            pred_xy_4, _ = reorder_corners_row_column(pred_xy_4, pred_dummy_vis)
+
+            # Visibility mask from GT (evaluate only visible/labeled points)
+            vis_mask = (gt_vis_4 > 0)
+            if vis_mask.sum().item() == 0:
+                continue
+
+            # L2 distance on visible points
+            diff = pred_xy_4[vis_mask] - gt_xy_4[vis_mask]  # [M,2]
+            dists = torch.linalg.norm(diff, dim=-1)  # [M]
+
+            # BBox diagonal for normalized PCK
             x_min, y_min, x_max, y_max = tgt["boxes"][0]
             diag = torch.sqrt((x_max - x_min) ** 2 + (y_max - y_min) ** 2).item()
+            if diag <= 0:
+                continue
 
             img_stats = {
-                "l2_px": dists.mean().item(), # mean L2 distance in pixels
-                **pck(dists, thresh=(3., 5.)), # PCK at 3 px and 5 px
-                **pck(dists, alpha=(.05, .10), bbox_diag=diag) # PCK at 5% and 10% of bbox diagonal
+                "l2_px": dists.mean().item(),
+                **pck(dists, thresh=(3., 5.)),
+                **pck(dists, alpha=(.05, .10), bbox_diag=diag),
             }
 
             for k, v in img_stats.items():
@@ -147,7 +191,8 @@ def evaluate_model(
 
             n_objects += 1
 
-    stats = {"mean_" + k: v / n_objects for k, v in keypt_sum.items()}
+    stats = {"mean_" + k: (v / n_objects if n_objects > 0 else float("nan"))
+             for k, v in keypt_sum.items()}
 
     results = map_metric.compute()  # dict of tensors
 
