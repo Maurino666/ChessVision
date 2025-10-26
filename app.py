@@ -24,8 +24,8 @@ from state_builder import build_board_state
 # Configuration
 # -----------------------
 
-PIECE_WEIGHTS_PATH = "runs/detect/full_aug_synthetic_3/weights/best.pt"
-BOARD_MODEL_PATH   = "runs/board_recognition/20250907_231248/model.pth"
+PIECE_WEIGHTS_PATH = "runs/detect/current/weights/best.pt"
+BOARD_MODEL_PATH   = "runs/board_recognition/current/model.pth"
 
 BOARD_SIZE = 800  # virtual square size for homography target (pixels)
 

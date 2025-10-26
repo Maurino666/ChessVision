@@ -26,13 +26,13 @@ from pathlib import Path
 # ----------------------------
 SERVER_URL = "http://127.0.0.1:8000/infer"
 WHITE_SIDE = "south"  # south|north|west|east
-IMAGE_PATH = r"datasets/synthetic_dataset_3/test/images/chess_9006.png"
+IMAGE_PATH = r"datasets/real_dataset_2/valid/images/3e0c67f38992fe16dfc163f7f5336263_jpg.rf.4a1c5c9f4cfd6b460d9af2d4c7a870bb.jpg"
 SAVE_OVERLAY = "overlay_result.jpg"  # set to None to skip saving
 
 # Virtual board size used by the server when building the homography.
 # Keep this in sync with the server's BOARD_SIZE (default 800).
 BOARD_SIZE = 800
-
+SHOW_CORNERS = False # Whether to draw detected board corners
 
 # ----------------------------
 # Helper functions
@@ -194,7 +194,7 @@ assert bgr is not None, "Failed to read image with OpenCV."
 
 # Draw corners if available
 corners = None
-if board.get("found") and board.get("corners"):
+if SHOW_CORNERS and board.get("found") and board.get("corners"):
     corners = np.array(board["corners"], dtype=np.float32)  # TL,TR,BL,BR in original pixels
     bgr = draw_corners(bgr, corners)
 

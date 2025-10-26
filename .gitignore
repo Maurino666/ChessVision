@@ -1,0 +1,15 @@
+# ignore datasets, keep yaml files for reference
+datasets/*/
+
+!datasets/*
+
+# only keep current board recognition model
+runs/board_recognition/*
+
+!runs/board_recognition/current/
+
+# only keep current pieces detection model
+
+runs/detect/*
+
+!runs/detect/current/
